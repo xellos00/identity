@@ -1,10 +1,12 @@
 from spaceone.core import cache
 from spaceone.core.service import *
+from spaceone.core import utils
 from spaceone.identity.manager.provider_manager import ProviderManager
 
 
 @authentication_handler
 @authorization_handler
+@mutation_handler
 @event_handler
 class ProviderService(BaseService):
 
@@ -12,9 +14,9 @@ class ProviderService(BaseService):
         super().__init__(*args, **kwargs)
         self.provider_mgr: ProviderManager = self.locator.get_manager('ProviderManager')
 
-    @transaction
+    @transaction(append_meta={'authorization.scope': 'DOMAIN'})
     @check_required(['provider', 'name', 'domain_id'])
-    def create_provider(self, params):
+    def create(self, params):
         """
         Args:
             params (dict): {
@@ -29,15 +31,18 @@ class ProviderService(BaseService):
 
         Returns:
             provider_vo (object)
-
         """
         # TODO: validate a template data
         # TODO: validate a capability data
+
+        if 'tags' in params:
+            params['tags'] = utils.dict_to_tags(params['tags'])
+
         return self.provider_mgr.create_provider(params)
 
-    @transaction
+    @transaction(append_meta={'authorization.scope': 'DOMAIN'})
     @check_required(['provider', 'domain_id'])
-    def update_provider(self, params):
+    def update(self, params):
         """
         Args:
             params (dict): {
@@ -46,21 +51,24 @@ class ProviderService(BaseService):
                 'template': 'dict',
                 'metadata': 'dict',
                 'capability': 'dict',
-                'tags': 'dict',
+                'tags': 'list',
                 'domain_id': 'str'
             }
 
         Returns:
             provider_vo (object)
-
         """
         # TODO: validate a template data
         # TODO: validate a capability data
+        
+        if 'tags' in params:
+            params['tags'] = utils.dict_to_tags(params['tags'])
+
         return self.provider_mgr.update_provider(params)
 
-    @transaction
+    @transaction(append_meta={'authorization.scope': 'DOMAIN'})
     @check_required(['provider', 'domain_id'])
-    def delete_provider(self, params):
+    def delete(self, params):
         """
         Args:
             params (dict): {
@@ -70,13 +78,12 @@ class ProviderService(BaseService):
 
         Returns:
             None
-
         """
         self.provider_mgr.delete_provider(params['provider'])
 
-    @transaction
+    @transaction(append_meta={'authorization.scope': 'DOMAIN'})
     @check_required(['provider', 'domain_id'])
-    def get_provider(self, params):
+    def get(self, params):
         """
         Args:
             params (dict): {
@@ -87,16 +94,16 @@ class ProviderService(BaseService):
 
         Returns:
             provider_vo (object)
-
         """
         self._create_default_provider()
         return self.provider_mgr.get_provider(params['provider'], params.get('only'))
 
-    @transaction
+    @transaction(append_meta={'authorization.scope': 'DOMAIN'})
     @check_required(['domain_id'])
     @append_query_filter(['provider', 'name'])
+    @change_tag_filter('tags')
     @append_keyword_filter(['provider', 'name'])
-    def list_providers(self, params):
+    def list(self, params):
         """
         Args:
             params (dict): {
@@ -107,15 +114,16 @@ class ProviderService(BaseService):
                 }
 
         Returns:
-            results (list)
+            results (list): 'list of provider_vo'
             total_count (int)
-
         """
         self._create_default_provider()
         return self.provider_mgr.list_providers(params.get('query', {}))
 
-    @transaction
+    @transaction(append_meta={'authorization.scope': 'DOMAIN'})
     @check_required(['query', 'domain_id'])
+    @change_tag_filter('tags')
+    @append_keyword_filter(['provider', 'name'])
     def stat(self, params):
         """
         Args:
@@ -125,8 +133,8 @@ class ProviderService(BaseService):
             }
 
         Returns:
-            values (list) : 'list of statistics data'
-
+            values (list): 'list of statistics data'
+            total_count (int)
         """
 
         query = params.get('query', {})
@@ -135,7 +143,7 @@ class ProviderService(BaseService):
     @cache.cacheable(key='provider:default:init', expire=300)
     def _create_default_provider(self):
         provider_vos, total_count = self.provider_mgr.list_providers()
-        if total_count == 0:
-            self.provider_mgr.create_default_providers()
+        installed_providers = [provider_vo.provider for provider_vo in provider_vos]
+        self.provider_mgr.create_default_providers(installed_providers)
 
         return True

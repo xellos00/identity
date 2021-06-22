@@ -1,4 +1,5 @@
 import unittest
+import copy
 from unittest.mock import patch
 from mongoengine import connect, disconnect
 from google.protobuf.json_format import MessageToDict
@@ -18,19 +19,27 @@ from test.factory.service_account_factory import ServiceAccountFactory
 
 class _MockServiceAccountService(BaseService):
 
-    def create_service_account(self, params):
+    def create(self, params):
+        params = copy.deepcopy(params)
+        if 'tags' in params:
+            params['tags'] = utils.dict_to_tags(params['tags'])
+
         return ServiceAccountFactory(**params)
 
-    def update_service_account(self, params):
+    def update(self, params):
+        params = copy.deepcopy(params)
+        if 'tags' in params:
+            params['tags'] = utils.dict_to_tags(params['tags'])
+
         return ServiceAccountFactory(**params)
 
-    def delete_service_account(self, params):
+    def delete(self, params):
         pass
 
-    def get_service_account(self, params):
+    def get(self, params):
         return ServiceAccountFactory(**params)
 
-    def list_service_accounts(self, params):
+    def list(self, params):
         return ServiceAccountFactory.build_batch(10, **params), 10
 
 
@@ -58,7 +67,7 @@ class TestServiceAccountAPI(unittest.TestCase):
             },
             'provider': 'aws',
             'tags': {
-                'key': 'value'
+                'tag_key': 'tag_value'
             },
             'domain_id': utils.generate_id('domain')
         }
@@ -69,10 +78,11 @@ class TestServiceAccountAPI(unittest.TestCase):
 
         print_message(service_account_info, 'test_create_service_account')
 
+        service_account_data = MessageToDict(service_account_info)
         self.assertIsInstance(service_account_info, service_account_pb2.ServiceAccountInfo)
         self.assertEqual(service_account_info.name, params['name'])
         self.assertDictEqual(MessageToDict(service_account_info.data), params['data'])
-        self.assertDictEqual(MessageToDict(service_account_info.tags), params['tags'])
+        self.assertDictEqual(service_account_data['tags'], params['tags'])
         self.assertEqual(service_account_info.domain_id, params['domain_id'])
         self.assertIsNotNone(getattr(service_account_info, 'created_at', None))
 
@@ -93,9 +103,10 @@ class TestServiceAccountAPI(unittest.TestCase):
 
         print_message(service_account_info, 'test_update_service_account')
 
+        service_account_data = MessageToDict(service_account_info)
         self.assertIsInstance(service_account_info, service_account_pb2.ServiceAccountInfo)
         self.assertEqual(service_account_info.name, params['name'])
-        self.assertDictEqual(MessageToDict(service_account_info.tags), params['tags'])
+        self.assertDictEqual(service_account_data['tags'], params['tags'])
 
     @patch.object(BaseAPI, '__init__', return_value=None)
     @patch.object(Locator, 'get_service', return_value=_MockServiceAccountService())

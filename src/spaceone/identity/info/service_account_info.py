@@ -1,6 +1,7 @@
 import functools
 from spaceone.api.identity.v1 import service_account_pb2
 from spaceone.core.pygrpc.message_type import *
+from spaceone.core import utils
 from spaceone.identity.model.service_account_model import ServiceAccount
 from spaceone.identity.info.project_info import ProjectInfo
 
@@ -17,9 +18,9 @@ def ServiceAccountInfo(service_account_vo: ServiceAccount, minimal=False):
     if not minimal:
         info.update({
             'data': change_struct_type(service_account_vo.data),
-            'tags': change_struct_type(service_account_vo.tags),
+            'tags': change_struct_type(utils.tags_to_dict(service_account_vo.tags)),
             'domain_id': service_account_vo.domain_id,
-            'created_at': change_timestamp_type(service_account_vo.created_at)
+            'created_at': utils.datetime_to_iso8601(service_account_vo.created_at)
         })
 
         if service_account_vo.project:

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import functools
 import json
 
@@ -7,9 +5,10 @@ from spaceone.api.core.v1 import handler_pb2
 from spaceone.api.identity.v1 import domain_pb2
 
 from spaceone.core.pygrpc.message_type import *
+from spaceone.core import utils
 from spaceone.identity.model.domain_model import Domain
 
-__all__ = ['DomainInfo', 'DomainsInfo', 'DomainPublicKeyInfo', 'DomainKeyInfo']
+__all__ = ['DomainInfo', 'DomainsInfo', 'DomainPublicKeyInfo']
 
 
 def DomainInfo(domain_vo: Domain, minimal=False):
@@ -23,9 +22,9 @@ def DomainInfo(domain_vo: Domain, minimal=False):
         info.update({
             'plugin_info': PluginInfo(domain_vo.plugin_info),
             'config': change_struct_type(domain_vo.config),
-            'created_at': change_timestamp_type(domain_vo.created_at),
-            'deleted_at': change_timestamp_type(domain_vo.deleted_at),
-            'tags': change_struct_type(domain_vo.tags)
+            'created_at': utils.datetime_to_iso8601(domain_vo.created_at),
+            'deleted_at': utils.datetime_to_iso8601(domain_vo.deleted_at),
+            'tags': change_struct_type(utils.tags_to_dict(domain_vo.tags))
         })
 
     return domain_pb2.DomainInfo(**info)
@@ -43,6 +42,7 @@ def PluginInfo(plugin_info):
             'plugin_id': plugin_info.plugin_id,
             'version': plugin_info.version,
             'options': change_struct_type(plugin_info.options),
+            'metadata': change_struct_type(plugin_info.metadata),
             'secret_id': plugin_info.secret_id
         }
         return domain_pb2.PluginInfo(**info)
@@ -55,11 +55,3 @@ def DomainPublicKeyInfo(public_key, domain_id):
         'domain_id': domain_id
     }
     return handler_pb2.AuthenticationResponse(**info)
-
-
-def DomainKeyInfo(domain_key, domain_id):
-    info = {
-        'domain_key': str(domain_key),
-        'domain_id': domain_id
-    }
-    return domain_pb2.DomainKeyResponse(**info)
